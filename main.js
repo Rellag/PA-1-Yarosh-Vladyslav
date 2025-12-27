@@ -5,6 +5,7 @@ let surface;
 let shProgram;
 let spaceball;
 let zoomDistance = 10;
+let animationRequestId = null;
 
 // Constructor
 function ShaderProgram(name, program) {
@@ -14,10 +15,15 @@ function ShaderProgram(name, program) {
 
     // Location of the attribute variable in the shader program.
     this.iAttribVertex = -1;
+    this.iAttribNormal = -1;
     // Location of the uniform specifying a color for the primitive.
     this.iColor = -1;
     // Location of the uniform matrix representing the combined transformation.
     this.iModelViewProjectionMatrix = -1;
+
+    this.iModelViewMatrix = -1;
+    this.iNormalMatrix = -1;
+    this.iLightPosition = -1;
 
     this.Use = function() {
         gl.useProgram(this.prog);
@@ -25,7 +31,7 @@ function ShaderProgram(name, program) {
 }
 
 
-function draw() { 
+function draw(timeMs) { 
     gl.clearColor(0,0,0,1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     
@@ -45,12 +51,26 @@ function draw() {
     let modelViewProjection = m4.multiply(projection, matAccum1 );
 
     gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection );
+    gl.uniformMatrix4fv(shProgram.iModelViewMatrix, false, matAccum1 );
+
+    const mvInv = m4.inverse(matAccum1);
+    const mvInvT = m4.transpose(mvInv);
+    const normalMatrix = new Float32Array([
+        mvInvT[0], mvInvT[1], mvInvT[2],
+        mvInvT[4], mvInvT[5], mvInvT[6],
+        mvInvT[8], mvInvT[9], mvInvT[10],
+    ]);
+    gl.uniformMatrix3fv(shProgram.iNormalMatrix, false, normalMatrix);
+
+    const t = (timeMs !== undefined ? timeMs : performance.now()) * 0.001;
+    const lightRadius = 8.0;
+    const lightHeight = 2.5;
+    const lightWorld = [lightRadius * Math.cos(t), lightHeight, lightRadius * Math.sin(t)];
+    const lightView = m4.transformPoint(matAccum1, lightWorld);
+    gl.uniform3fv(shProgram.iLightPosition, lightView);
     
-    gl.uniform4fv(shProgram.iColor, [0, 1, 1, 1]);
-    surface.drawULines();
-    
-    gl.uniform4fv(shProgram.iColor, [1, 0, 1, 1]);
-    surface.drawVLines();
+    gl.uniform4fv(shProgram.iColor, [0.2, 0.7, 1.0, 1.0]);
+    surface.drawTriangles();
 }
 
 /* Initialize the WebGL context. Called from init() */
@@ -61,7 +81,11 @@ function initGL() {
     shProgram.Use();
 
     shProgram.iAttribVertex              = gl.getAttribLocation(prog, "vertex");
+    shProgram.iAttribNormal              = gl.getAttribLocation(prog, "normal");
     shProgram.iModelViewProjectionMatrix = gl.getUniformLocation(prog, "ModelViewProjectionMatrix");
+    shProgram.iModelViewMatrix           = gl.getUniformLocation(prog, "ModelViewMatrix");
+    shProgram.iNormalMatrix              = gl.getUniformLocation(prog, "NormalMatrix");
+    shProgram.iLightPosition             = gl.getUniformLocation(prog, "LightPosition");
     shProgram.iColor                     = gl.getUniformLocation(prog, "color");
 
     surface = new SurfaceGrid(64, 32);
@@ -163,5 +187,12 @@ function init() {
         });
     }
 
-    draw();
+    if (animationRequestId !== null) {
+        cancelAnimationFrame(animationRequestId);
+    }
+    const animate = function(timeMs) {
+        draw(timeMs);
+        animationRequestId = requestAnimationFrame(animate);
+    };
+    animationRequestId = requestAnimationFrame(animate);
 }
