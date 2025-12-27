@@ -7,6 +7,10 @@ let spaceball;
 let zoomDistance = 10;
 let animationRequestId = null;
 
+let texPivotU = 0.5;
+let texPivotV = 0.5;
+let texScale = 1.0;
+
 // Constructor
 function ShaderProgram(name, program) {
 
@@ -30,6 +34,9 @@ function ShaderProgram(name, program) {
     this.iDiffuseMap = -1;
     this.iSpecularMap = -1;
     this.iNormalMap = -1;
+
+    this.iTexPivot = -1;
+    this.iTexScale = -1;
 
     this.Use = function() {
         gl.useProgram(this.prog);
@@ -91,6 +98,9 @@ function draw(timeMs) {
     gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_2D, normalTexture);
     gl.uniform1i(shProgram.iNormalMap, 2);
+
+    gl.uniform2fv(shProgram.iTexPivot, [texPivotU, texPivotV]);
+    gl.uniform1f(shProgram.iTexScale, texScale);
     
     gl.uniform4fv(shProgram.iColor, [0.2, 0.7, 1.0, 1.0]);
     surface.drawTriangles();
@@ -116,6 +126,9 @@ function initGL() {
     shProgram.iDiffuseMap                = gl.getUniformLocation(prog, "DiffuseMap");
     shProgram.iSpecularMap               = gl.getUniformLocation(prog, "SpecularMap");
     shProgram.iNormalMap                 = gl.getUniformLocation(prog, "NormalMap");
+
+    shProgram.iTexPivot                  = gl.getUniformLocation(prog, "TexPivot");
+    shProgram.iTexScale                  = gl.getUniformLocation(prog, "TexScale");
 
     diffuseTexture = LoadTexture('./diffuse.jpg', new Uint8Array([255, 255, 255, 255]));
     specularTexture = LoadTexture('./specular.jpg', new Uint8Array([255, 255, 255, 255]));
@@ -193,6 +206,11 @@ function init() {
     const nuValue = document.getElementById('nuValue');
     const nvValue = document.getElementById('nvValue');
     const zoomValue = document.getElementById('zoomValue');
+
+    const texScaleSlider = document.getElementById('texScaleSlider');
+    const texScaleValue = document.getElementById('texScaleValue');
+    const texPivotUValue = document.getElementById('texPivotUValue');
+    const texPivotVValue = document.getElementById('texPivotVValue');
     
     if (nuSlider && nvSlider) {
         nuSlider.addEventListener('input', function() {
@@ -219,6 +237,51 @@ function init() {
             draw();
         });
     }
+
+    if (texScaleSlider) {
+        texScaleSlider.addEventListener('input', function() {
+            texScale = parseFloat(texScaleSlider.value);
+            if (texScaleValue) {
+                texScaleValue.textContent = texScale.toFixed(2);
+            }
+            draw();
+        });
+    }
+
+    const updatePivotLabels = function() {
+        if (texPivotUValue) {
+            texPivotUValue.textContent = texPivotU.toFixed(2);
+        }
+        if (texPivotVValue) {
+            texPivotVValue.textContent = texPivotV.toFixed(2);
+        }
+    };
+    updatePivotLabels();
+
+    window.addEventListener('keydown', function(e) {
+        const key = (e.key || '').toLowerCase();
+        const step = 0.01;
+        let changed = false;
+
+        if (key === 'a') {
+            texPivotU = Math.max(0.0, Math.min(1.0, texPivotU - step));
+            changed = true;
+        } else if (key === 'd') {
+            texPivotU = Math.max(0.0, Math.min(1.0, texPivotU + step));
+            changed = true;
+        } else if (key === 'w') {
+            texPivotV = Math.max(0.0, Math.min(1.0, texPivotV + step));
+            changed = true;
+        } else if (key === 's') {
+            texPivotV = Math.max(0.0, Math.min(1.0, texPivotV - step));
+            changed = true;
+        }
+
+        if (changed) {
+            updatePivotLabels();
+            draw();
+        }
+    });
 
     if (animationRequestId !== null) {
         cancelAnimationFrame(animationRequestId);

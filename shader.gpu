@@ -9,6 +9,9 @@ uniform mat4 ModelViewProjectionMatrix;
 uniform mat4 ModelViewMatrix;
 uniform mat3 NormalMatrix;
 
+uniform vec2 TexPivot;
+uniform float TexScale;
+
 varying vec3 vNormal;
 varying vec3 vPosition;
 varying vec2 vTexCoord;
@@ -27,7 +30,7 @@ void main() {
 
     vNormal = N;
     vTBN = mat3(T, B, N);
-    vTexCoord = texCoord;
+    vTexCoord = fract(TexPivot + (texCoord - TexPivot) * TexScale);
     gl_Position = ModelViewProjectionMatrix * vec4(vertex, 1.0);
 }`;
 
